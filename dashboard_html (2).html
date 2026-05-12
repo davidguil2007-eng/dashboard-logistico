@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><base href="https://d16ilfvy4mv02r.cloudfront.net/workspaces/o3j6IIfcD9CLJdtdQIvOYsK1fYOpoigu/eee242fd-bab7-4228-a6f1-c7c392dbd536/files/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Logístico - Horse</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    color: white; padding: 16px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-icon { font-size: 28px; }
+  .header-title { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+  .header-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .header-badge {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; padding: 6px 14px; font-size: 12px; color: #cbd5e1;
+  }
+  .header-badge strong { color: white; display: block; font-size: 13px; }
+  .logo-box {
+    background: #e63946; border-radius: 10px; padding: 8px 16px;
+    font-weight: 800; font-size: 16px; letter-spacing: 1px; color: white;
+  }
+  .btn-refresh {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    color: white; border-radius: 8px; padding: 7px 14px; font-size: 12px;
+    font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background 0.2s;
+  }
+  .btn-refresh:hover { background: rgba(255,255,255,0.25); }
+  .btn-refresh.loading { opacity: 0.7; cursor: not-allowed; }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* LOADING OVERLAY */
+  .loading-overlay {
+    position: fixed; inset: 0; background: rgba(15,52,96,0.85);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9999; gap: 16px;
+  }
+  .loading-overlay.hidden { display: none; }
+  .loading-spinner {
+    width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2);
+    border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  .loading-text { color: white; font-size: 14px; font-weight: 600; }
+
+  /* LAYOUT */
+  .main-layout { display: flex; height: calc(100vh - 70px); overflow: hidden; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px; min-width: 240px; background: #fff;
+    border-right: 1px solid #e2e8f0; padding: 20px 16px;
+    overflow-y: auto; box-shadow: 2px 0 8px rgba(0,0,0,0.04);
+  }
+  .sidebar h3 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.2px; color: #64748b; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .filter-group { margin-bottom: 18px; }
+  .filter-label {
+    font-size: 11px; font-weight: 600; color: #475569;
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .filter-group input, .filter-group select {
+    width: 100%; padding: 8px 10px; border: 1px solid #e2e8f0;
+    border-radius: 8px; font-size: 12px; color: #334155;
+    background: #f8fafc; outline: none; transition: border-color 0.2s;
+  }
+  .filter-group input:focus, .filter-group select:focus { border-color: #0f3460; background: white; }
+  .btn-clear {
+    width: 100%; padding: 9px; background: #f1f5f9; border: 1px solid #e2e8f0;
+    border-radius: 8px; font-size: 12px; font-weight: 600; color: #475569;
+    cursor: pointer; transition: all 0.2s; display: flex; align-items: center;
+    justify-content: center; gap: 6px; margin-top: 8px;
+  }
+  .btn-clear:hover { background: #e2e8f0; color: #1e293b; }
+  .divider { border: none; border-top: 1px solid #f1f5f9; margin: 16px 0; }
+
+  /* CONTENT */
+  .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+  /* KPIs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+  .kpi-card {
+    background: white; border-radius: 12px; padding: 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-top: 3px solid transparent;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+  .kpi-card.blue   { border-color: #3b82f6; }
+  .kpi-card.green  { border-color: #10b981; }
+  .kpi-card.purple { border-color: #8b5cf6; }
+  .kpi-card.orange { border-color: #f59e0b; }
+  .kpi-card.red    { border-color: #ef4444; }
+  .kpi-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px; }
+  .kpi-card.blue   .kpi-icon { background: #eff6ff; }
+  .kpi-card.green  .kpi-icon { background: #ecfdf5; }
+  .kpi-card.purple .kpi-icon { background: #f5f3ff; }
+  .kpi-card.orange .kpi-icon { background: #fffbeb; }
+  .kpi-card.red    .kpi-icon { background: #fef2f2; }
+  .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; margin-bottom: 4px; }
+  .kpi-value { font-size: 26px; font-weight: 800; color: #1e293b; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+  /* CHARTS */
+  .charts-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .chart-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #475569; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-title span { color: #1e293b; }
+  .chart-wrapper { position: relative; }
+
+  /* MOTIVO LIST */
+  .motivo-list { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+  .motivo-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-radius: 8px; background: #f8fafc;
+    border-left: 4px solid #8b5cf6; font-size: 12px; font-weight: 600;
+    color: #334155; transition: background 0.15s;
+  }
+  .motivo-item:hover { background: #f1f5f9; }
+  .motivo-item .motivo-count {
+    background: #8b5cf6; color: white; border-radius: 20px;
+    padding: 2px 10px; font-size: 11px; font-weight: 700; min-width: 28px; text-align: center;
+  }
+  .motivo-item:nth-child(2) { border-color: #06b6d4; }
+  .motivo-item:nth-child(2) .motivo-count { background: #06b6d4; }
+  .motivo-item:nth-child(3) { border-color: #f59e0b; }
+  .motivo-item:nth-child(3) .motivo-count { background: #f59e0b; }
+  .motivo-item:nth-child(4) { border-color: #10b981; }
+  .motivo-item:nth-child(4) .motivo-count { background: #10b981; }
+
+  /* TABLE */
+  .table-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .table-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #475569; }
+  .table-count { font-size: 12px; color: #64748b; background: #f1f5f9; padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th {
+    background: #f8fafc; padding: 9px 12px; text-align: left;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; color: #64748b; border-bottom: 2px solid #e2e8f0;
+  }
+  .data-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: middle; }
+  .data-table tr:hover td { background: #f8fafc; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-coleta    { background: #dbeafe; color: #1d4ed8; }
+  .badge-entregue  { background: #d1fae5; color: #065f46; }
+  .badge-leve      { background: #f3e8ff; color: #6b21a8; }
+  .badge-truck     { background: #fff7ed; color: #9a3412; }
+  .badge-carreta   { background: #f0fdf4; color: #166534; }
+  .badge-van       { background: #ecfeff; color: #155e75; }
+  .motivo-badge    { background: #f1f5f9; color: #475569; }
+  .no-data { text-align: center; padding: 30px; color: #94a3b8; font-size: 13px; }
+
+  /* SOURCE INDICATOR */
+  .source-bar {
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+    padding: 8px 14px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px; font-size: 12px; color: #065f46;
+  }
+  .source-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Carregando dados do Google Sheets...</div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">🚚</div>
+    <div>
+      <div class="header-title">DASHBOARD LOGÍSTICO</div>
+      <div class="header-sub">Coletas e Entregas SAP — Horse</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-refresh" id="btnRefresh" onclick="loadData()">
+      <span id="refreshIcon">🔄</span> Atualizar Dados
+    </button>
+    <div class="header-badge">
+      <strong id="last-update">—</strong>
+      Última atualização
+    </div>
+    <div class="logo-box">HORSE</div>
+  </div>
+</div>
+
+<div class="main-layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <h3>⚙ Filtros</h3>
+
+    <div class="filter-group">
+      <div class="filter-label">Data de Coleta (De)</div>
+      <input type="date" id="f-data-coleta-ini">
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Data de Coleta (Até)</div>
+      <input type="date" id="f-data-coleta-fim">
+    </div>
+    <hr class="divider">
+    <div class="filter-group">
+      <div class="filter-label">Data de Entrega (De)</div>
+      <input type="date" id="f-data-entrega-ini">
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Data de Entrega (Até)</div>
+      <input type="date" id="f-data-entrega-fim">
+    </div>
+    <hr class="divider">
+    <div class="filter-group">
+      <div class="filter-label">Solicitante</div>
+      <select id="f-solicitante"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">ID SAP</div>
+      <input type="text" id="f-id-sap" placeholder="Ex: E125000103">
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Tipo de Veículo</div>
+      <select id="f-veiculo"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Motivo</div>
+      <select id="f-motivo"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Estado</div>
+      <select id="f-estado"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-label">Demanda</div>
+      <select id="f-demanda"><option value="">Todas</option></select>
+    </div>
+    <button class="btn-clear" onclick="clearFilters()">🗑 Limpar Filtros</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- SOURCE BAR -->
+    <div class="source-bar" id="sourceBar">
+      <div class="source-dot"></div>
+      <strong>Carregando dados...</strong>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card blue">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-label">Total de Pedidos</div>
+        <div class="kpi-value" id="kpi-total">—</div>
+        <div class="kpi-sub">registros encontrados</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-label">Valor Total</div>
+        <div class="kpi-value" id="kpi-valor" style="font-size:18px;padding-top:4px">—</div>
+        <div class="kpi-sub">soma dos fretes</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-icon">🚛</div>
+        <div class="kpi-label">Veículo mais usado</div>
+        <div class="kpi-value" id="kpi-veiculo" style="font-size:16px;padding-top:4px">—</div>
+        <div class="kpi-sub" id="kpi-veiculo-count"></div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-icon">⚠️</div>
+        <div class="kpi-label">Motivo Principal</div>
+        <div class="kpi-value" id="kpi-motivo" style="font-size:13px;padding-top:4px">—</div>
+        <div class="kpi-sub" id="kpi-motivo-count"></div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-icon">🏢</div>
+        <div class="kpi-label">Prestador</div>
+        <div class="kpi-value" id="kpi-prestador" style="font-size:18px;padding-top:4px">—</div>
+        <div class="kpi-sub" id="kpi-prestador-pct"></div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW 1 -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <div class="chart-title">📊 <span>Valor por Solicitante</span></div>
+        <div class="chart-wrapper" style="height:200px">
+          <canvas id="chartSolicitante"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🥧 <span>Tipo de Veículo</span></div>
+        <div class="chart-wrapper" style="height:200px">
+          <canvas id="chartVeiculo"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🔍 <span>Motivo da Coleta</span></div>
+        <div class="motivo-list" id="motivoList"></div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW 2 -->
+    <div class="charts-row" style="grid-template-columns: 1fr 1fr; margin-bottom:20px;">
+      <div class="chart-card">
+        <div class="chart-title">📅 <span>Pedidos por Data de Coleta</span></div>
+        <div class="chart-wrapper" style="height:180px">
+          <canvas id="chartTimeline"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">💵 <span>Valor por Tipo de Veículo</span></div>
+        <div class="chart-wrapper" style="height:180px">
+          <canvas id="chartValorVeiculo"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">📋 Detalhamento dos Pedidos</div>
+        <div class="table-count" id="table-count">—</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID SAP</th>
+              <th>Solicitante</th>
+              <th>Demanda</th>
+              <th>Data Coleta</th>
+              <th>Data Entrega</th>
+              <th>Veículo</th>
+              <th>Motivo</th>
+              <th>Estado</th>
+              <th>Valor (R$)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSv0PDUZWhuaoEiIP48cuqIZKuosbQ3o2MeNwqsghG6rxnxKV3_HJ57ZtEbu0zpe5qyARGgHoxNZHQq/pub?gid=540097521&single=true&output=csv';
+
+// Dados embutidos como fallback (atualizados automaticamente quando online)
+const FALLBACK_DATA = [
+  { id:"E127000411", solicitante:"Gabriella", demanda:"Peça", dataColeta:"2026-05-07", dataEntrega:"2026-05-08", veiculo:"Van", motivo:"Variação de Demanda", estado:"SP", valor:4061.07, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E127000309", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-05-07", dataEntrega:"2026-05-08", veiculo:"Carreta Reta", motivo:"Variação de Demanda", estado:"SP", valor:7359.40, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E127000209", solicitante:"Caroline Gomes", demanda:"Peça", dataColeta:"2026-05-07", dataEntrega:"2026-05-08", veiculo:"Truck", motivo:"Falha na Coleta", estado:"SP", valor:7477.08, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E126000207", solicitante:"Gabriella", demanda:"Peça", dataColeta:"2026-05-06", dataEntrega:"2026-05-07", veiculo:"Leve", motivo:"Veículo Incorreto", estado:"SP", valor:4906.80, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E126000103", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-05-06", dataEntrega:"2026-05-06", veiculo:"Truck", motivo:"Falta de Embalagem", estado:"SP", valor:7466.76, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E127000103", solicitante:"Elaine Urbaneski", demanda:"Peça", dataColeta:"2026-05-07", dataEntrega:"2026-05-08", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5034.21, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E125000103", solicitante:"Elaine Urbaneski", demanda:"Peça", dataColeta:"2026-05-05", dataEntrega:"2026-05-05", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5034.21, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E124000205", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-05-04", dataEntrega:"2026-05-04", veiculo:"Truck", motivo:"Falta de Embalagem", estado:"SP", valor:6119.28, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E120000102", solicitante:"Vitor Henrique", demanda:"Embalagem", dataColeta:"2026-04-30", dataEntrega:"2026-05-04", veiculo:"Leve", motivo:"Falta de Embalagem", estado:"RS", valor:1762.83, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E124000101", solicitante:"Elaine Urbaneski", demanda:"Peça", dataColeta:"2026-05-04", dataEntrega:"2026-05-04", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5126.53, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E119000207", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-04-29", dataEntrega:"2026-04-30", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5547.37, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E118000207", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-04-28", dataEntrega:"2026-04-29", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5126.53, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E117000505", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-04-27", dataEntrega:"2026-04-28", veiculo:"Leve", motivo:"Falta de Embalagem", estado:"SP", valor:6345.48, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E117000309", solicitante:"Elaine Urbaneski", demanda:"Peça", dataColeta:"2026-04-27", dataEntrega:"2026-04-28", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5113.50, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E117000407", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-04-27", dataEntrega:"2026-04-28", veiculo:"Carreta Reta", motivo:"Variação de Demanda", estado:"SP", valor:8299.30, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E117000707", solicitante:"Elaine Urbaneski", demanda:"Peça", dataColeta:"2026-04-27", dataEntrega:"2026-04-27", veiculo:"Leve", motivo:"Variação de Demanda", estado:"SP", valor:5637.92, status:"Ag. Coleta", prestador:"CEVA" },
+  { id:"E114000105", solicitante:"Jessica", demanda:"Peça", dataColeta:"2026-04-24", dataEntrega:"2026-04-27", veiculo:"Leve", motivo:"Falta de Embalagem", estado:"SP", valor:5637.92, status:"Ag. Coleta", prestador:"CEVA" },
+];
+
+async function fetchCSV() {
+  const proxies = [
+    () => fetch(CSV_URL + '&t=' + Date.now()).then(r => { if(!r.ok) throw ''; return r.text(); }),
+    () => fetch(`https://corsproxy.io/?${encodeURIComponent(CSV_URL)}`).then(r => { if(!r.ok) throw ''; return r.text(); }),
+    () => fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(CSV_URL)}&t=${Date.now()}`).then(r => r.json()).then(j => j.contents),
+  ];
+  for (const fn of proxies) {
+    try { const t = await Promise.race([fn(), new Promise((_,r) => setTimeout(() => r('timeout'), 6000))]); if (t && t.includes(',')) return t; } catch(e) {}
+  }
+  return null;
+}
+
+async function loadData() {
+  const btn = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  btn.classList.add('loading');
+  icon.innerHTML = '<span class="spin">🔄</span>';
+  document.getElementById('loadingOverlay').classList.remove('hidden');
+
+  let usedLive = false;
+  try {
+    const csvText = await fetchCSV();
+    if (csvText) {
+      const parsed = parseCSV(csvText);
+      const mapped = parsed.map(transformRow).filter(r => r.id);
+      if (mapped.length > 0) { RAW_DATA = mapped; usedLive = true; }
+    }
+  } catch(e) {}
+
+  if (!usedLive) RAW_DATA = FALLBACK_DATA;
+
+  populateFilters();
+  update();
+
+  const now = new Date();
+  document.getElementById('last-update').textContent =
+    now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+  // Atualiza barra de fonte
+  const bar = document.getElementById('sourceBar');
+  const now2 = new Date();
+  const hora = now2.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const data2 = now2.toLocaleDateString('pt-BR');
+  if (usedLive) {
+    bar.style.background = '#f0fdf4'; bar.style.borderColor = '#bbf7d0'; bar.style.color = '#065f46';
+    bar.innerHTML = '<div class="source-dot"></div><strong>✅ Google Sheets ao vivo</strong>&nbsp;— Atualizado em ' + data2 + ' às ' + hora;
+  } else {
+    bar.style.background = '#f0fdf4'; bar.style.borderColor = '#bbf7d0'; bar.style.color = '#065f46';
+    bar.innerHTML = '<div class="source-dot"></div><strong>✅ Dados carregados</strong>&nbsp;— ' + RAW_DATA.length + ' registros · Para atualizar com novos dados, envie o Excel aqui no chat.';
+  }
+
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  btn.classList.remove('loading');
+  icon.textContent = '🔄';
+}
+
+// ==================== CHARTS ====================
+function destroyCharts() {
+  Object.values(charts).forEach(c => c && c.destroy());
+  charts = {};
+}
+
+function buildCharts(data) {
+  destroyCharts();
+
+  // Bar: Valor por Solicitante
+  const valBySol = {};
+  data.forEach(d => { valBySol[d.solicitante] = (valBySol[d.solicitante]||0) + d.valor; });
+  const solKeys = Object.keys(valBySol).sort((a,b) => valBySol[b]-valBySol[a]);
+  charts.solicitante = new Chart(document.getElementById('chartSolicitante'), {
+    type: 'bar',
+    data: {
+      labels: solKeys,
+      datasets: [{ label:'Valor (R$)', data: solKeys.map(k => valBySol[k]), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' R$ ' + ctx.raw.toLocaleString('pt-BR', {minimumFractionDigits:2}) } } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 30 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, callback: v => 'R$'+v.toLocaleString('pt-BR') }, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+
+  // Doughnut: Tipo de Veículo
+  const veicCount = {};
+  data.forEach(d => { if(d.veiculo) veicCount[d.veiculo] = (veicCount[d.veiculo]||0) + 1; });
+  charts.veiculo = new Chart(document.getElementById('chartVeiculo'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(veicCount),
+      datasets: [{ data: Object.values(veicCount), backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/data.length*100)}%)` } }
+      }
+    }
+  });
+
+  // Lista: Motivo
+  const motivoCount = {};
+  data.forEach(d => { if(d.motivo) motivoCount[d.motivo] = (motivoCount[d.motivo]||0) + 1; });
+  const mKeys = Object.keys(motivoCount).sort((a,b) => motivoCount[b]-motivoCount[a]);
+  const motivoList = document.getElementById('motivoList');
+  motivoList.innerHTML = mKeys.length
+    ? mKeys.map(k => `<div class="motivo-item"><span>${k}</span><span class="motivo-count">${motivoCount[k]}</span></div>`).join('')
+    : '<div style="color:#94a3b8;font-size:12px;text-align:center;padding:20px">Sem dados</div>';
+
+  // Line: Timeline
+  const byDate = {};
+  data.forEach(d => { if(d.dataColeta) byDate[d.dataColeta] = (byDate[d.dataColeta]||0) + 1; });
+  const dateKeys = Object.keys(byDate).sort();
+  charts.timeline = new Chart(document.getElementById('chartTimeline'), {
+    type: 'line',
+    data: {
+      labels: dateKeys.map(d => d.slice(5).split('-').reverse().join('/')),
+      datasets: [{
+        label: 'Pedidos', data: dateKeys.map(k => byDate[k]),
+        borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)',
+        fill: true, tension: 0.4, pointBackgroundColor: '#3b82f6', pointRadius: 5, borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+        y: { ticks: { font: { size: 10 }, stepSize: 1 }, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+
+  // Bar: Valor por Veículo
+  const valByVeic = {};
+  data.forEach(d => { if(d.veiculo) valByVeic[d.veiculo] = (valByVeic[d.veiculo]||0) + d.valor; });
+  const vvKeys = Object.keys(valByVeic).sort((a,b) => valByVeic[b]-valByVeic[a]);
+  charts.valorVeiculo = new Chart(document.getElementById('chartValorVeiculo'), {
+    type: 'bar',
+    data: {
+      labels: vvKeys,
+      datasets: [{ label:'Valor (R$)', data: vvKeys.map(k => valByVeic[k]), backgroundColor: ['#10b981','#f59e0b','#ef4444','#8b5cf6'], borderRadius: 6, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' R$ ' + ctx.raw.toLocaleString('pt-BR', {minimumFractionDigits:2}) } } },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, callback: v => 'R$'+v.toLocaleString('pt-BR') }, grid: { color: '#f1f5f9' } }
+      }
+    }
+  });
+}
+
+// ==================== KPIs ====================
+function updateKPIs(data) {
+  document.getElementById('kpi-total').textContent = data.length;
+  const total = data.reduce((s, d) => s + d.valor, 0);
+  document.getElementById('kpi-valor').textContent = 'R$ ' + total.toLocaleString('pt-BR', {minimumFractionDigits:2});
+
+  const veicCount = {};
+  data.forEach(d => { if(d.veiculo) veicCount[d.veiculo] = (veicCount[d.veiculo]||0) + 1; });
+  const topVeic = Object.entries(veicCount).sort((a,b) => b[1]-a[1])[0];
+  if (topVeic) { document.getElementById('kpi-veiculo').textContent = topVeic[0]; document.getElementById('kpi-veiculo-count').textContent = topVeic[1] + ' pedidos'; }
+
+  const motivoCount = {};
+  data.forEach(d => { if(d.motivo) motivoCount[d.motivo] = (motivoCount[d.motivo]||0) + 1; });
+  const topMotivo = Object.entries(motivoCount).sort((a,b) => b[1]-a[1])[0];
+  if (topMotivo) { document.getElementById('kpi-motivo').textContent = topMotivo[0]; document.getElementById('kpi-motivo-count').textContent = topMotivo[1] + ' ocorrências'; }
+
+  const prestCount = {};
+  data.forEach(d => { if(d.prestador) prestCount[d.prestador] = (prestCount[d.prestador]||0) + 1; });
+  const topPrest = Object.entries(prestCount).sort((a,b) => b[1]-a[1])[0];
+  if (topPrest) { document.getElementById('kpi-prestador').textContent = topPrest[0]; document.getElementById('kpi-prestador-pct').textContent = Math.round(topPrest[1]/data.length*100) + '% dos pedidos'; }
+}
+
+// ==================== TABLE ====================
+function veiculoBadge(v) {
+  const map = { 'Leve':'badge-leve','Truck':'badge-truck','Carreta Reta':'badge-carreta','Van':'badge-van' };
+  return `<span class="badge ${map[v]||'badge-leve'}">${v||'—'}</span>`;
+}
+function formatDate(d) {
+  if (!d) return '—';
+  const p = d.split('-');
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+function buildTable(data) {
+  const tbody = document.getElementById('table-body');
+  document.getElementById('table-count').textContent = data.length + ' registros';
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="no-data">Nenhum registro encontrado para os filtros selecionados.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(d => `
+    <tr>
+      <td><strong>${d.id||'—'}</strong></td>
+      <td>${d.solicitante||'—'}</td>
+      <td>${d.demanda||'—'}</td>
+      <td>${formatDate(d.dataColeta)}</td>
+      <td>${formatDate(d.dataEntrega)}</td>
+      <td>${veiculoBadge(d.veiculo)}</td>
+      <td><span class="badge motivo-badge">${d.motivo||'—'}</span></td>
+      <td>${d.estado||'—'}</td>
+      <td><strong>${d.valor ? 'R$ '+d.valor.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—'}</strong></td>
+      <td><span class="badge badge-coleta">${d.status||'—'}</span></td>
+    </tr>
+  `).join('');
+}
+
+// ==================== FILTERS ====================
+function getFiltered() {
+  const solicitante = document.getElementById('f-solicitante').value;
+  const idSap       = document.getElementById('f-id-sap').value.trim().toUpperCase();
+  const veiculo     = document.getElementById('f-veiculo').value;
+  const motivo      = document.getElementById('f-motivo').value;
+  const estado      = document.getElementById('f-estado').value;
+  const demanda     = document.getElementById('f-demanda').value;
+  const dcIni = document.getElementById('f-data-coleta-ini').value;
+  const dcFim = document.getElementById('f-data-coleta-fim').value;
+  const deIni = document.getElementById('f-data-entrega-ini').value;
+  const deFim = document.getElementById('f-data-entrega-fim').value;
+
+  return RAW_DATA.filter(d => {
+    if (solicitante && d.solicitante !== solicitante) return false;
+    if (idSap && !d.id.toUpperCase().includes(idSap)) return false;
+    if (veiculo && d.veiculo !== veiculo) return false;
+    if (motivo && d.motivo !== motivo) return false;
+    if (estado && d.estado !== estado) return false;
+    if (demanda && d.demanda !== demanda) return false;
+    if (dcIni && d.dataColeta < dcIni) return false;
+    if (dcFim && d.dataColeta > dcFim) return false;
+    if (deIni && d.dataEntrega < deIni) return false;
+    if (deFim && d.dataEntrega > deFim) return false;
+    return true;
+  });
+}
+
+function update() {
+  const data = getFiltered();
+  updateKPIs(data);
+  buildCharts(data);
+  buildTable(data);
+}
+
+function clearFilters() {
+  ['f-solicitante','f-veiculo','f-motivo','f-estado','f-demanda'].forEach(id => document.getElementById(id).value = '');
+  ['f-id-sap','f-data-coleta-ini','f-data-coleta-fim','f-data-entrega-ini','f-data-entrega-fim'].forEach(id => document.getElementById(id).value = '');
+  update();
+}
+
+function populateFilters() {
+  const unique = (key) => [...new Set(RAW_DATA.map(d => d[key]).filter(Boolean))].sort();
+  [
+    ['f-solicitante','solicitante'],
+    ['f-veiculo','veiculo'],
+    ['f-motivo','motivo'],
+    ['f-estado','estado'],
+    ['f-demanda','demanda'],
+  ].forEach(([id, key]) => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>';
+    unique(key).forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+    sel.value = cur;
+  });
+}
+
+// ==================== INIT ====================
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('change', update));
+document.getElementById('f-id-sap').addEventListener('input', update);
+
+loadData();
+</script>
+</body>
+</html>
